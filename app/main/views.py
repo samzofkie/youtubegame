@@ -41,13 +41,14 @@ def music():
     #db.session.commit()
     ids = [ vid.vid_id for vid in vids ]
     return render_template('index.html', ids=ids, xhr_endpoint='"/more_music_vids"')
-    
+'''  
    
 @main.route('/more_vids')
 def more_vids():
     vids = Video.query.limit(10).all()
-    #for vid in vids: db.session.delete(vid) 
-    #db.session.commit()
+    if not current_app.config['VIDEO_REPLACEMENT']: 
+        for vid in vids: db.session.delete(vid) 
+        db.session.commit()
     ids = [vid.vid_id for vid in vids]
     return jsonify( ids )
 
@@ -56,8 +57,9 @@ def more_vids():
 def more_music_vids():
     music_genre = Genre.query.filter_by(name='Music').all()[0]
     vids = Video.query.filter_by(genre=music_genre).limit(10).all()
-    #for vid in vids: db.session.delete(vid) 
-    #db.session.commit()
+    if not current_app.config['VIDEO_REPLACEMENT']: 
+        for vid in vids: db.session.delete(vid) 
+        db.session.commit()
     ids = [vid.vid_id for vid in vids]
     return jsonify( ids )
-'''
+
