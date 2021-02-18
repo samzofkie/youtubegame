@@ -2,7 +2,7 @@ import sys
 import re
 from time import sleep
 import requests
-from random import choice, randint
+from random import choice, randint, random
 import datetime
 from collections import namedtuple, UserDict
 import html
@@ -42,12 +42,12 @@ class Crawler:
         sw = self.get_sw()
         url = self.search_url + sw
         html = _get_html(url)
-        #logging.info(f'Made request to {url}')
 
         # this also needs error handling and a test
         vid_ids = self._extract_vid_ids_from_search_html(html)
         if not vid_ids:
             logging.warning(f'Error for searchword "{sw}"')
+            rsleep(6,2)
             return self._get_random_vid_id() 
         
         return choice(tuple(vid_ids)) 
@@ -87,18 +87,22 @@ class Crawler:
                     try:
                         if num_vids % 25 == 0:
                             logging.info(f'{num_vids} in database')
+
                         vid_id = self._get_random_vid_id()
+
+                        rsleep(6,2)
+
                         raw_info = self._get_raw_video_info( vid_id )
                         video_dict = self._video_dict_from_raw_info( *raw_info )
 
                         video_row_obj = self.Video( **video_dict )
                         self.db.session.add( video_row_obj )
                         self.db.session.commit()
-
+                
                         logging.info(f'Committed {video_row_obj} to database')
                     except:
                         logging.error('crawler error: '+str(sys.exc_info()[0]))
-                sleep(8)
+                rsleep(6,2)
 
 
 
@@ -152,4 +156,7 @@ def _get_html(url):
         if r.status_code != 200:
             raise ValueError(f'Http request to {url} returned status code {r.status_code}')
         return r.text
+
+def rsleep(n,dev):
+    sleep((random()-0.5)*dev*2+n)
 
