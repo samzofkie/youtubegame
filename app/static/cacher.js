@@ -60,7 +60,21 @@ function next_video(e) {
 				for (; created_counter < start + ids.length; created_counter++) {
 					iframes.push(createIframe( ids[created_counter - start], created_counter ));
 				}
-			}
+			} else if (xhr.status === 429) {
+				// Let em know they were going too fast
+				var warning = document.createElement("div");
+				warning.style.color = 'white';
+				warning.innerHTML = "U gotta slow down chill for 1 min";
+				document.body.appendChild(warning);
+				
+				// Take away the precious button for 60 secs
+				button.onclick = function(){console.log("click")};
+				setTimeout(function(){ 
+					// Take away warning and restore button
+					button.onclick = next_video;
+					warning.remove()
+				}, 60000);
+			}	
 		}
 		xhr.onerror = function(e) {
 			console.error(xhr.statusText);
