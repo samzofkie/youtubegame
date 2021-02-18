@@ -1,54 +1,64 @@
-var i=0, j=0, k=0;
+// There are three counters: created_counter counts the number of iframes created by createIframe, and held in the iframes array
+// 			     inserted_counter counts the number of iframes inserted into the html (first loop of window.onload)
+// 			     revealed_counter counts the number of iframes revealed (iframe.style.display = 'block' as opposed to 'none'
+// These are all global variables so they can be shared between window.onload and next_video.
+
 var iframes = new Array();
 
-// put first videos from html into iframes array
-for (; k<ids.length; k++) {
-	iframes.push(createIframe( ids[k], k ));
+var created_counter = 0, inserted_counter = 0, revealed_counter = 0;
+
+var button;
+
+// Create first iframes with ids from ids variable (in html), and put them in iframes array.
+for (created_counter=0; created_counter < ids.length; created_counter++) {
+	iframes.push(createIframe( ids[created_counter], created_counter ));
 }
 
 window.onload = function() {
-	
-	// actually create 3 iframes
-	for (; j<3; j++) {
-		document.body.insertBefore( iframes[j], document.getElementById('myBtn'));
+
+	button = document.getElementById('myBtn');
+
+	// Insert 3 iframes from iframes array into document before button
+	for (inserted_counter = 0; inserted_counter < 3; inserted_counter++) {
+		document.body.insertBefore( iframes[inserted_counter], button);
 	}
 	 
-	// reveal first iframe
-	var elem = document.getElementById('iframe_id'+i);
-	elem.style.display = 'block';
-	i++;	
+	// Reveal first iframe
+	var tmp_if = document.getElementById('iframe_id' + revealed_counter);
+	tmp_if.style.display = 'block';
+	revealed_counter++;	
 	
-	document.getElementById('myBtn').onclick = next_video;
+	// Register next_video function with button
+	button.onclick = next_video;
 }	
 
 
 function next_video(e) {
-	// del iframe_id i-1
-	elem = document.getElementById('iframe_id'+(i-1));
-	elem.parentNode.removeChild(elem);
+	// Remove iframe w iframe_id revealed_counter-1
+	tmp_if = document.getElementById('iframe_id' + (revealed_counter-1));
+	tmp_if.parentNode.removeChild(tmp_if);
 				
-	// reveal iframe_id i
-	var elem = document.getElementById('iframe_id'+i);
-	elem.style.display = 'block';
+	// Reveal iframe w iframe_id revealed_counter
+	var tmp_if = document.getElementById('iframe_id' + revealed_counter);
+	tmp_if.style.display = 'block';
 
-	// load an iframe in the background
-	document.body.insertBefore( iframes[j], document.getElementById('myBtn'));
+	// Insert an iframe from iframes array
+	document.body.insertBefore( iframes[inserted_counter], button);
 
+	inserted_counter++;
+	revealed_counter++;	
 
-	j++;
-	i++;	
-
-	// if we're almost out of iframes, get more
-	if (iframes.length-5 < j) {
+	// If there's less than 5 iframes in iframes array, make xhr request for more
+	if (iframes.length - 5 < inserted_counter) {
 		var xhr = new XMLHttpRequest();
 		xhr.open("GET", xhr_endpoint, true);
 		xhr.onload = function(e) {
 			if (xhr.status === 200) {
-				// process new ids and add them to iframes array
+				// Create new iframes from ids array, and add them to iframes array
 				var ids = JSON.parse(xhr.responseText);
-				var start = k;
-				for (; k < start + ids.length; k++) {
-					iframes.push(createIframe(ids[k-start], k));
+				var start = created_counter;
+				for (; created_counter < start + ids.length; created_counter++) {
+					iframes.push(createIframe( ids[created_counter - start], created_counter ));
 				}
 			}
 		}
