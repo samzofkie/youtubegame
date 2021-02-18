@@ -82,9 +82,10 @@ class Crawler:
     def crawl(self, app):
         with app.app_context():
             while True:
-                num_vids = self.Video.query.count()
-                if num_vids < 10000:
-                    try:
+                try:
+                    num_vids = self.Video.query.count()
+                    if num_vids < 10000:
+
                         if num_vids % 25 == 0:
                             logging.info(f'{num_vids} in database')
 
@@ -100,8 +101,9 @@ class Crawler:
                         self.db.session.commit()
                 
                         logging.info(f'Committed {video_row_obj} to database')
-                    except:
-                        logging.error('crawler error: '+str(sys.exc_info()[0]))
+                except:
+                    logging.error('crawler error: '+str(sys.exc_info()[0]))
+                
                 rsleep(6,2)
 
 

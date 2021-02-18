@@ -1,10 +1,13 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from config import config
 import logging
 from threading import Thread
 
 db = SQLAlchemy()
+limiter = Limiter(key_func=get_remote_address)
 
 def create_app(config_name):
     app = Flask(__name__) 
@@ -12,6 +15,7 @@ def create_app(config_name):
     config[config_name].init_app(app)
 
     db.init_app(app)
+    limiter.init_app(app)
      
     from .main import main as main_blueprint
     from .main import GenreMap, Crawler
