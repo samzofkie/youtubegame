@@ -6,6 +6,7 @@ from ..models import Video, Genre
 from . import main
 
 
+@limiter.limit("1/minute")
 @main.route('/')
 @main.route('/<letter>')
 def index(letter=None):
@@ -30,6 +31,7 @@ def index(letter=None):
 
     ids = json.dumps( [ vid.vid_id for vid in vids ] )
     return render_template('index.html', ids=ids, xhr_endpoint=xhr_endpoint)
+
 
 @limiter.limit("1/minute")   
 @main.route('/more_vids')

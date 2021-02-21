@@ -6,14 +6,16 @@ from config import config
 import logging
 from threading import Thread
 
+
 db = SQLAlchemy()
 limiter = Limiter(key_func=get_remote_address)
+
 
 def create_app(config_name):
     app = Flask(__name__) 
     app.config.from_object(config[config_name])
-    config[config_name].init_app(app)
 
+    config[config_name].init_app(app)
     db.init_app(app)
     limiter.init_app(app)
      
@@ -27,6 +29,9 @@ def create_app(config_name):
         if not db.engine.has_table('videos'):
             db.create_all()
             logging.info('Created tables')
+        else:
+            from .models import Video
+            logging.info(f'Database holds {Video.query.count()} videos')
         if app.config['CRAWL']:
             crawler = Crawler() 
             Thread(target=crawler.crawl, args=(app,)).start()
