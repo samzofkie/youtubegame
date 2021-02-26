@@ -1,9 +1,14 @@
 import os
+import yaml
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 
 class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    DEBUG = False
+    
+    with open('logging_config.yaml','r') as f:
+        LOGGER_DICT = yaml.load(f, Loader=yaml.Loader)
 
     @staticmethod
     def init_app(app):
@@ -11,14 +16,13 @@ class Config:
 
 
 class DevelopmentConfig(Config):
-    DEBUG = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
         'sqlite:///' + os.path.join(basedir, 'data-dev.sqlite')
     VIDEO_REPLACEMENT = True
-    CRAWL = False
+    CRAWL = True
+
 
 class ProductionConfig(Config):
-    DEBUG = False
     if 'RDS_HOSTNAME' in os.environ:
         USERNAME = os.environ['RDS_USERNAME']
         PASSWORD = os.environ['RDS_PASSWORD']
@@ -31,9 +35,10 @@ class ProductionConfig(Config):
     VIDEO_REPLACEMENT = False
     CRAWL = True
 
+
+
 config = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
-
     'default': DevelopmentConfig
 }

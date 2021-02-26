@@ -9,6 +9,7 @@ import html
 import pickle
 import logging
 import os
+import traceback
 from ..models import Video
 from .. import db
 from .genreMap import GenreMap
@@ -16,12 +17,16 @@ from .genreMap import GenreMap
 
 class Crawler:
     
-    def __init__(self):
-        self.db = db
-        self.Video = Video
+    def __init__(self): 
+        self.logger = logging.getLogger('root')
+        
         self.genre_map = GenreMap()
 
         self.get_sw = swGenerator()
+
+        self.timeout = Timeout()
+
+
         self.search_url = 'https://www.youtube.com/results?search_query='
         self.watch_url = 'https://www.youtube.com/watch?v='
 
@@ -31,11 +36,9 @@ class Crawler:
                                                       meta\sitemprop="datePublished"\scontent="(?P<date>[^"]*?)".*?
                                                       meta\sitemprop="genre"\scontent="(?P<genre>[^"]*?)".*?
                                                       "approxDurationMs":"(?P<ms>[^"]*?)"''', re.X)
+        
 
-
-
-
-        logging.info('Successfully initialized Crawler')
+        self.logger.info('Successfully initialized crawler')
   
 
     def _get_random_vid_id(self):
@@ -43,13 +46,9 @@ class Crawler:
         url = self.search_url + sw
         html = _get_html(url)
 
-        # this also needs error handling and a test
         vid_ids = self._extract_vid_ids_from_search_html(html)
-        if not vid_ids:
-            logging.warning(f'Error for searchword "{sw}"')
-            rsleep(6,2)
-            return self._get_random_vid_id() 
-        
+        if not vid_ids: raise swError(sw)
+            
         return choice(tuple(vid_ids)) 
 
 
@@ -61,11 +60,9 @@ class Crawler:
     def _get_raw_video_info(self, vid_id):
         url = self.watch_url + vid_id
         html = _get_html(url)
-        #logging.info(f'Made request to {url}')
         
         matchobj = self.info_from_watch_html_re.search(html)
-        if matchobj == None:
-            logging.warning(f'Regex failed for {url}')
+        if matchobj == None: raise regexFailure(vid_id)
 
         return (vid_id, *matchobj.groups())
 
@@ -83,28 +80,57 @@ class Crawler:
         with app.app_context():
             while True:
                 try:
-                    num_vids = self.Video.query.count()
-                    if num_vids < 10000:
+                    num_vids = Video.query.count()
+                    if num_vids % 25 == 0:
+                        self.logger.info(f'{num_vids} in database')
 
-                        if num_vids % 25 == 0:
-                            logging.info(f'{num_vids} in database')
+                    # Makin first req, possible error for sw warning (and sleep)
+                    vid_id = self._get_random_vid_id()
 
-                        vid_id = self._get_random_vid_id()
+                    self.timeout()
 
-                        rsleep(6,2)
+                    # Makes second req, for watch endpoint. 429s would happen here
+                    # If a 429 happens, rest o block gets skipped, so deescalate could happen after here
+                    raw_info = self._get_raw_video_info( vid_id )
 
-                        raw_info = self._get_raw_video_info( vid_id )
-                        video_dict = self._video_dict_from_raw_info( *raw_info )
+                    # These lines could maybe be combined?
+                    video_dict = self._video_dict_from_raw_info( *raw_info )
+                    video_row_obj = Video( **video_dict )
+                    db.session.add( video_row_obj )
+                    db.session.commit()
+                    self.logger.info(f'Committed {video_row_obj} to database')
 
-                        video_row_obj = self.Video( **video_dict )
-                        self.db.session.add( video_row_obj )
-                        self.db.session.commit()
-                
-                        logging.info(f'Committed {video_row_obj} to database')
+                except (swError, regexFailure) as err:
+                    self.logger.error(err)
+                except requests.exceptions.HTTPError as err:
+                    self.logger.error(err)
+                    self.timeout.escalate()
                 except:
-                    logging.error('crawler error: '+str(sys.exc_info()[0]))
+                    traceback.print_tb(sys.exc_info()[0])
+                    self.logger.error(f'unknown error: {sys.exc_info[0]}')
                 
-                rsleep(6,2)
+                self.timeout()
+
+class Timeout:
+    def __init__(self):
+        self.timeout = 5
+
+    def __call__(self):
+        t = self.timeout
+        self.rsleep(t, t//3)
+        if self.timeout > 5: 
+            self.deescalate()
+
+    def escalate(self):
+        self.timeout = min(self.timeout * 5, 78125)
+
+    def deescalate(self):
+        t = self.timeout
+        self.timeout = max( t/5 , 5 )
+
+    @staticmethod
+    def rsleep(n,dev):
+        sleep((random()-0.5)*dev*2+n)
 
 
 
@@ -145,6 +171,15 @@ class swGenerator:
         return self.sw_map[self.counter%3]()
 
 
+class swError(Exception):
+    def __init__(self,sw):
+        super(swError,self).__init__(f'Search failed for sw {sw}')
+
+class regexFailure(Exception):
+    def __init__(self,vid_id):
+        super(regexFailure,self).__init__(f'Regex failed for video at {vid_id}')
+
+
 
 def unpickle(fname):
         with open(fname,'rb') as f:
@@ -155,10 +190,5 @@ def _get_html(url):
         ''' Get HTML content of url
         '''
         r = requests.get(url)
-        if r.status_code != 200:
-            raise ValueError(f'Http request to {url} returned status code {r.status_code}')
+        r.raise_for_status()
         return r.text
-
-def rsleep(n,dev):
-    sleep((random()-0.5)*dev*2+n)
-
