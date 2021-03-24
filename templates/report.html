@@ -1,0 +1,37 @@
+<html>
+<head>
+<title>ytgame</title>
+</head>
+<body style='background-color:yellow;'>
+
+<table style>
+	<colgroup>
+		<col span="2" style="background-color:white;">
+	</colgroup>
+	{% for route in vs_data %}
+		<tr> <td> {{route}} </td> <td> {{vs_data[route]}} </td> </tr> 
+	{% endfor %}
+		<tr> <td> total </td> <td> {{ vs_data.values()|sum() }} </td> </tr>
+</table>
+
+<input type="text" id="unsanitized_command">
+<button id="btn">unsanitized_command fr</button>
+
+<script>
+	window.onload = ()=>{
+		document.getElementById('btn').onclick = sumbit;
+	}
+	function sumbit() {
+		var xhr = new XMLHttpRequest();
+		xhr.open('POST','/report',true);
+		xhr.send(document.getElementById('unsanitized_command').value);
+		console.log('made xhr req');
+		xhr.onerror = function(e) {
+			console.error('issu: ', xhr.statusText);
+		};
+	}
+</script>
+
+</body> 
+</html>
+

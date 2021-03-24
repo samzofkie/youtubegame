@@ -1,0 +1,22 @@
+<html>
+<head>
+	<title>ytgame</title>
+	<script> 
+		var ids = {{ ids|safe }};
+        var VIDS_LEFT_REUP_THRESHOLD = {{ VIDS_LEFT_REUP_THRESHOLD }}
+	</script>
+    <script src='https://www.youtube.com/iframe_api'></script>
+</head>
+<body style='background-color:black;'> 
+
+    <div id='player1'></div>
+    <div id='player2'></div>
+	<button id="btn" style='font-size:24px;'>next vid</button>
+
+	<input type='checkbox' id='reporting_checkbox' style='display: none;' onclick="reporting_true()">
+
+	<script type="text/javascript" src="{{ url_for('static',filename='cacher.js') }}"></script>
+
+</body> 
+</html>
+
