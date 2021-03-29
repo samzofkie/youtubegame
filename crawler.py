@@ -5,6 +5,7 @@ from random import choice, randint
 import re
 import requests
 from time import sleep
+import datetime
 
 from utils import CursorCM, QueryQueue
 
@@ -18,10 +19,10 @@ class Crawler:
 		self.video_store = video_store
 		self.genre_map = genre_map
 		self.logger = logger
-		self.get_sw = swGenerator()
+		self.get_sw = SwGenerator()
 
 		self.EXIT_FLAG = 1
-		self.timeout = 0
+		self.timeout = os.environ.get('CRAWLER_TIMEOUT',5)
 
 		self.search_url = 'https://www.youtube.com/results?search_query='
 		self.watch_url = 'https://www.youtube.com/watch?v='
@@ -65,7 +66,7 @@ class Crawler:
 				 html.unescape(title).replace("'",'')[:99],
 				 min(int(views), MAX_VIEWS),
 				 date,
-				 datetime.timedelta(seconds = duration / 1000),
+				 int(duration) / 1000,
 				 self.genre_map[ html.unescape(genre) ] )
 
 	def _get_video_info_from_watch_page(self, vid_id):
@@ -80,19 +81,18 @@ class Crawler:
 
 	def crawl(self):
 		self.logger.info('Crawler startine')
-		#vid_tup = namedtuple('vid_tup', ['uri','title','views','date','duration','genre'])
 		while True:
 			try:
 				vid_id = self._get_random_vid_id()
-				vid_info_tup= self._get_video_info_from_watch_page(vid_id)
+				vid_info_tup = self._get_video_info_from_watch_page(vid_id)
 				
 				# one day, one day ill kill u...
 				self.logger.info(f'Found video: {vid_info_tup[0]}')		
 							
 				self.video_store.add(vid_info_tup)
-				#vid_info_tup[-1] = self.genre_map[vid_info_tup[-1]]
-				#vid_info_tup[-2] = self._ms_to_sql_time(vid_info_tup[-2]*1000)
-				self.query_queue.append(f"INSERT INTO videos VALUES ( NULL, { str(vid_info_tup)[1:-1] } );")
+				self.query_queue.append(f"INSERT INTO videos VALUES "
+										f"( NULL, { str(vid_info_tup[:4])[1:-1] }, "
+										f"SEC_TO_TIME({vid_info_tup[4]}), {vid_info_tup[5]} );")
 				
 				sleep(self.timeout)
 
@@ -118,58 +118,40 @@ class Crawler:
 
 
 
+class SwGenerator:
+	def __init__(self):
+		cwd = os.path.abspath(os.path.dirname(__file__))
+		self.words = self.unpickle(cwd+'/data/words')
+		self.names = self.unpickle(cwd+'/data/names')
+		self.alphabet = 'abcdefghijklmnopqrstuvwxyz1234567890'
+		self.sws = self.sw_gen_factory()
+
+	
+	def unpickle(self, fname):
+		with open(fname,'rb') as f:
+			return pickle.load(f)
 
 
-class swGenerator:
-    def __init__(self):
-        cwd = os.path.abspath(os.path.dirname(__file__))
-        self.words = self.unpickle(cwd+'/data/words')
-        self.names = self.unpickle(cwd+'/data/names')
-        self.meths = [self._gib, self._word, self._name]
-        self.sws = self.infinite_sws()
-       
-    @staticmethod
-    def unpickle(fname):
-        with open(fname,'rb') as f:
-            return pickle.load(f)
-
-    @staticmethod
-    def cut_down(word, length):
-        if len(word) > length:
-            start = choice(range(len(word)-length))
-            word = word[start : start+length]
-        return word
-
-    @staticmethod
-    def gibberish(length):
-        alphabet = 'abcdefghijklmnopqrstuvwxyz1234567890'
-        return ''.join(choice(alphabet) for i in range(length))
-
-    def _gib(self):
-        return self.gibberish(randint(3,5))
-
-    def _word(self):
-        return self.cut_down(choice(self.words), randint(4,7))
-
-    def _name(self):
-        return self.cut_down(choice(self.names), randint(4,6))
-   
-    def infinite_sws(self):
-        i = 0
-        while True:
-            index = i % len(self.meths)
-            meth = self.meths[index]
-            yield meth()
-            i+=1
-
-    def __call__(self):
-        return next(self.sws)
+	def cut_down(self, word, length):
+		if len(word) > length:
+			start = choice(range(len(word)-length))
+			word = word[start : start+length]
+		return word
 
 
+	def gibberish(self, length):
+		return ''.join(choice(self.alphabet) for i in range(length))
 
 
+	def sw_gen_factory(self):
+		while 1:
+			yield self.gibberish(randint(3,5))
+			yield self.cut_down(choice(self.words), randint(4,7))
+			yield self.cut_down(choice(self.names), randint(4,6))
 
 
+	def __call__(self):
+		return next(self.sws)
 
 
 class swError(Exception):
